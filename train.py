@@ -29,13 +29,16 @@ dh_kwargs = {
         'test_split': 'split/test.txt',
         'datapath': '.',
         'train_batchsize': 8,
-        'test_batchsize': 16, 
+        'test_batchsize': 16,
         'modalities': ('label', 'img'),
         'rand_flip': (1, 1),
         'crop_type': 'balance',
-        'balance_rate': 0.5, 
+        'balance_rate': 0.5,
         'crop_size_img': (512, 384),
         'mini_positive': 100,
+        'crop_type_test': 'center',
+        'crop_size_img_test': (512, 384),
+        'collate_max_hw': (512, 384),
         'DataSet': Dataset_SEGCLS_png,
         'num_workers': 4,
         }
@@ -94,23 +97,3 @@ trainer.train()
 is_indiv = False; is_save_png = False
 trainer.test('cls_max', 'cls_max', is_indiv, is_save_png)
 trainer.test('seg_max', 'seg_max', is_indiv, is_save_png)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
