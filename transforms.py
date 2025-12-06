@@ -36,7 +36,6 @@ def crop_size_correct(sp, ep, this_size):
         ep -= (ep-this_size)
 
     return sp, ep
-
 def crop(tensor, locations):
     """ Crop on the inner-most 2 or 3 dimensions
     ''location'' is a tuple indicating locations of start and end points
@@ -47,12 +46,13 @@ def crop(tensor, locations):
         x1, x2 = crop_size_correct(x1, x2, s[-1])
         y1, y2 = crop_size_correct(y1, y2, s[-2])
         z1, z2 = crop_size_correct(z1, z2, s[-3])
-        return tensor[..., z1:z2, y1:y2, x1:x2]
+        return tensor[..., z1:z2, y1:y2, x1:x2].contiguous()
+
     elif len(locations) == 4:
         x1, y1, x2, y2 = locations
         x1, x2 = crop_size_correct(x1, x2, s[-1])
         y1, y2 = crop_size_correct(y1, y2, s[-2])
-        return tensor[..., y1:y2, x1:x2]
+        return tensor[..., y1:y2, x1:x2].contiguous()
     else:
         raise RuntimeError('Invalid crop size dimension.')
 
@@ -77,7 +77,7 @@ def center_crop(tensor, size):
         x1 = (w - tw) // 2
         y1 = (h - th) // 2
         loc = (x1, y1, x1 + tw, y1 + th)
-        return crop(tensor, loc)
+        return crop(tensor, loc).contiguous()
     else:
         raise RuntimeError('Invalid center crop size.')
 
@@ -95,10 +95,10 @@ def crop_centroid(tensor, centroid, size):
     end_pos = [start_pos_i + size_i for start_pos_i, size_i in zip(start_pos, size)]
     if len(centroid) == 3:
         locations = (start_pos[2], start_pos[1], start_pos[0], end_pos[2], end_pos[1], end_pos[0])
-        return crop(tensor, locations)
+        return crop(tensor, locations).contiguous()
     elif len(centroid == 2):
         locations = (start_pos[1], start_pos[0], end_pos[1], end_pos[0])
-        return crop(tensor, locations)
+        return crop(tensor, locations).contiguous()
     else:
         raise RuntimeError('Invalid centroid crop size.')
 
@@ -107,7 +107,8 @@ def flip_tensor(tensor, axis):
     if len(tensor.size()) == 1:
         return tensor
     tNp = np.flip(tensor.numpy(), axis).copy()
-    return torch.from_numpy(tNp)
+    return torch.from_numpy(tNp).contiguous()
+
 
 
 def rot90_tensor(tensor, k=1):
@@ -117,7 +118,8 @@ def rot90_tensor(tensor, k=1):
         tNp = np.rot90(tensor.numpy(), k, (1,2)).copy()
     else:
         tNp = tensor.numpy()
-    return torch.from_numpy(tNp)
+    return torch.from_numpy(tNp).contiguous()
+
 
 
 class Compose(object):
@@ -367,7 +369,8 @@ class RandomCrop3d(object):
         y1 = random.randint(0, h - th)
         z1 = random.randint(0, d - td)
         loc = (x1, y1, z1, x1 + tw, y1 + th, z1 + td)
-        return crop(img, loc), crop(label, loc)
+        return crop(img, loc).contiguous(), crop(label, loc).contiguous()
+
 
 class RandomCrop2d(object):
     """Crops the given (img, label) at a random location to have a region of
@@ -389,7 +392,8 @@ class RandomCrop2d(object):
         x1 = random.randint(0, w - tw)
         y1 = random.randint(0, h - th)
         loc = (x1, y1, x1 + tw, y1 + th)
-        return crop(img, loc), crop(label, loc)
+        return crop(img, loc).contiguous(), crop(label, loc).contiguous()
+
 
 class BalanceCrop(object):
     """Randomly crop the given image and label with balanced centroid class.
@@ -433,8 +437,8 @@ class BalanceCrop(object):
             i = random.randint(0, len(negative_loc)-1)
             center_loc = negative_loc[i]
 
-        return crop_centroid(img, center_loc, self.img_size), \
-               crop_centroid(label, center_loc, self.label_size)
+        return crop_centroid(img, center_loc, self.img_size).contiguous(), \
+               crop_centroid(label, center_loc, self.label_size).contiguous()
 
     def _make_mask(self, input_size):
         mask = torch.ones(input_size).long()
