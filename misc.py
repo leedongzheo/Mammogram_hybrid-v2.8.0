@@ -78,7 +78,7 @@ def timestr(form=None):
     if form == 'mdhm':
         return time.strftime('%m%d%H%M', time.localtime())
 
-def bilinear_init3d(m, method=nn.init.kaiming_normal):
+def bilinear_init3d(m, method=nn.init.kaiming_normal_):
     inC, outC, d, h, w = m.weight.size()
     if not (outC == 1 and inC == m.groups and h==w==4):
         method(m.weight)
@@ -100,7 +100,7 @@ def bilinear_init3d(m, method=nn.init.kaiming_normal):
         for i in range(inC):
             m.weight.data[i] = kernel
 
-def bilinear_init2d(m, method=nn.init.kaiming_normal):
+def bilinear_init2d(m, method=nn.init.kaiming_normal_):
     inC, outC, h, w = m.weight.size()
     if not (outC == 1 and inC == m.groups and h==w==4):
         method(m.weight)
@@ -118,7 +118,7 @@ def bilinear_init2d(m, method=nn.init.kaiming_normal):
         for i in range(inC):
             m.weight.data[i] = kernel
 
-def weights_init(m, method=nn.init.kaiming_normal):
+def weights_init(m, method=nn.init.kaiming_normal_):
     '''
     ConvXd: kaiming_normal (weight), zeros (bias)
     BatchNormXd: ones (weight), zeros (bias)
