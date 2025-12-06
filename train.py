@@ -79,7 +79,7 @@ criterion_cube = {
         'segcls_weight': (1.0, 0.03), # If cls_weight==0.0, clsfromseg = True
         }
 
-snapshot_root = '../snapshot/%s' % (experiment_id)
+snapshot_root = './snapshot/%s' % (experiment_id)
 os.makedirs(snapshot_root, exist_ok=True)
 
 snapshot_scheme = {
