@@ -138,7 +138,8 @@ class MMDataset_memmap(udata.Dataset):
             img, label = self.transform(img, label)
         else:
             img = torch.from_numpy(img).float()
-
+        img = img.contiguous()
+        label = label.contiguous()
         return img, label
 
     def __len__(self):
