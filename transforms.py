@@ -138,9 +138,22 @@ class Compose(object):
 
 
 class ToTensor(object):
-    """ Convert np.ndarray to torch.*Tensor """
+    """ Convert np.ndarray or Tensor to torch.Tensor """
     def __call__(self, img, label):
-        return torch.from_numpy(img.copy()).float(), torch.from_numpy(label.copy()).long()
+        # img
+        if isinstance(img, np.ndarray):
+            img = torch.from_numpy(img).float()
+        else:  # already tensor
+            img = img.clone().float()
+
+        # label
+        if isinstance(label, np.ndarray):
+            label = torch.from_numpy(label).long()
+        else:  # already tensor
+            label = label.clone().long()
+
+        return img, label
+
 
 class Normalize(object):
     """ Normalize ''tensor'' by ''mean'' and ''std'' along each channel if corresponding arguments are provided.
