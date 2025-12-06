@@ -28,8 +28,8 @@ dh_kwargs = {
         'val_split': 'split/val.txt',
         'test_split': 'split/test.txt',
         'datapath': '.',
-        'train_batchsize': 8,
-        'test_batchsize': 16,
+        'train_batchsize': 64,
+        'test_batchsize': 32,
         'modalities': ('label', 'img'),
         'rand_flip': (1, 1),
         'crop_type': 'balance',
@@ -79,7 +79,7 @@ criterion_cube = {
         'segcls_weight': (1.0, 0.03), # If cls_weight==0.0, clsfromseg = True
         }
 
-snapshot_root = './snapshot/%s' % (experiment_id)
+snapshot_root = '../snapshot/%s' % (experiment_id)
 os.makedirs(snapshot_root, exist_ok=True)
 
 snapshot_scheme = {
