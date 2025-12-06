@@ -12,10 +12,44 @@ import math
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch.nn as nn
+import torch.nn.functional as F
 import transforms
 import general_dataset as datasets
 
 __all__ = ['timestr', 'bilinear_init2d', 'weights_init', 'DataHub']
+
+
+def pad_collate_segcls(batch):
+    """Pad variable-sized (img, label[, cls_label]) samples to the max HxW in the batch.
+
+    Images are padded with zeros channel-wise; labels are padded with the background class (0).
+    This prevents DataLoader's default collate from failing when samples have differing sizes.
+    """
+
+    # Unzip without assuming the number of elements
+    transposed = list(zip(*batch))
+    images, labels = transposed[0], transposed[1]
+    cls_labels = transposed[2] if len(transposed) > 2 else None
+
+    max_h = max(img.shape[-2] for img in images)
+    max_w = max(img.shape[-1] for img in images)
+
+    padded_images = []
+    padded_labels = []
+    for img, label in zip(images, labels):
+        pad_h = max_h - img.shape[-2]
+        pad_w = max_w - img.shape[-1]
+        padded_images.append(F.pad(img, (0, pad_w, 0, pad_h)).contiguous())
+        padded_labels.append(F.pad(label, (0, pad_w, 0, pad_h), value=0).contiguous())
+
+    stacked_images = torch.stack(padded_images, dim=0)
+    stacked_labels = torch.stack(padded_labels, dim=0)
+
+    if cls_labels is not None:
+        stacked_cls = torch.stack(cls_labels, dim=0)
+        return stacked_images, stacked_labels, stacked_cls
+
+    return stacked_images, stacked_labels
 
 def timestr(form=None):
     if form is None:
@@ -177,7 +211,7 @@ class DataHub(object):
             shuffle = False
         data_loader = DataLoader(data_set, batch_size=batch_size, sampler=sampler,
                                  shuffle=shuffle, num_workers=self.num_workers, pin_memory=False,
-                                 drop_last=drop_last)
+                                 drop_last=drop_last, collate_fn=pad_collate_segcls)
         return data_loader
 
     def _make_labelloader(self, split, datapath, batch_size):
@@ -263,5 +297,3 @@ class DataHub(object):
 
     def test_sn(self):
         return self._test_sn
-
-
