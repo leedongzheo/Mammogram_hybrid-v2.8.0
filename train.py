@@ -23,7 +23,7 @@ device = torch.device('cuda:0')
 timestr = time.strftime('%m%d%H%M')
 
 dh_kwargs = {
-        'root': 'data',
+        'root': '../data',
         'train_split': 'split/train.txt',
         'val_split': 'split/val.txt',
         'test_split': 'split/test.txt',
