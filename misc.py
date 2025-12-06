@@ -9,6 +9,7 @@ import time
 import numpy as np
 import os.path as osp
 import math
+from functools import partial
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch.nn as nn
@@ -19,11 +20,12 @@ import general_dataset as datasets
 __all__ = ['timestr', 'bilinear_init2d', 'weights_init', 'DataHub']
 
 
-def pad_collate_segcls(batch):
+def pad_collate_segcls(batch, max_hw=None):
     """Pad variable-sized (img, label[, cls_label]) samples to the max HxW in the batch.
 
     Images are padded with zeros channel-wise; labels are padded with the background class (0).
-    This prevents DataLoader's default collate from failing when samples have differing sizes.
+    If ``max_hw`` is provided, samples larger than the limit are center-cropped before padding
+    to avoid excessive GPU usage when a single oversized item appears in a batch.
     """
 
     # Unzip without assuming the number of elements
@@ -34,11 +36,30 @@ def pad_collate_segcls(batch):
     max_h = max(img.shape[-2] for img in images)
     max_w = max(img.shape[-1] for img in images)
 
+    if max_hw is not None:
+        target_h = min(max_h, max_hw[0])
+        target_w = min(max_w, max_hw[1])
+    else:
+        target_h, target_w = max_h, max_w
+
     padded_images = []
     padded_labels = []
     for img, label in zip(images, labels):
-        pad_h = max_h - img.shape[-2]
-        pad_w = max_w - img.shape[-1]
+        # Center-crop if this sample exceeds the allowed max to keep batch tensors bounded
+        h, w = img.shape[-2:]
+        if h > target_h:
+            top = (h - target_h) // 2
+            img = img[..., top:top + target_h, :]
+            label = label[..., top:top + target_h, :]
+            h = target_h
+        if w > target_w:
+            left = (w - target_w) // 2
+            img = img[..., :, left:left + target_w]
+            label = label[..., :, left:left + target_w]
+            w = target_w
+
+        pad_h = target_h - h
+        pad_w = target_w - w
         padded_images.append(F.pad(img, (0, pad_w, 0, pad_h)).contiguous())
         padded_labels.append(F.pad(label, (0, pad_w, 0, pad_h), value=0).contiguous())
 
@@ -118,19 +139,20 @@ def weights_init(m, method=nn.init.kaiming_normal):
 
 class DataHub(object):
     def __init__(self, root, train_split, val_split, test_split, datapath, train_batchsize,
-                 test_batchsize, modalities, std=1, mean=0, modal_test=None, datapath_test=None, 
-                 rand_flip=None, crop_type=None, crop_size_img=None, crop_size_label=None, 
-                 balance_rate=0.5, train_pad_size=None, test_pad_size=None, mod_drop_rate=0, 
-                 train_drop_last=False, crop_type_test=None, crop_size_img_test=None, 
-                 crop_size_label_test=None, DataSet=datasets.Dataset_SEGCLS_png, TestDataSet=None, 
-                 label_loader_path=None, weighted_sample_rate=None, rand_rot90=False, 
-                 num_workers=1, mem_shape=None, random_black_patch_size=None, 
-                 mini_positive=None):
+                 test_batchsize, modalities, std=1, mean=0, modal_test=None, datapath_test=None,
+                 rand_flip=None, crop_type=None, crop_size_img=None, crop_size_label=None,
+                 balance_rate=0.5, train_pad_size=None, test_pad_size=None, mod_drop_rate=0,
+                 train_drop_last=False, crop_type_test=None, crop_size_img_test=None,
+                 crop_size_label_test=None, DataSet=datasets.Dataset_SEGCLS_png, TestDataSet=None,
+                 label_loader_path=None, weighted_sample_rate=None, rand_rot90=False,
+                 num_workers=1, mem_shape=None, random_black_patch_size=None,
+                 mini_positive=None, collate_max_hw=None):
         self.root = root
         self.std = std
         self.mean = mean
         self.num_workers = num_workers
         self.mem_shape = mem_shape
+        self.collate_max_hw = collate_max_hw
         if TestDataSet is None:
             TestDataSet = DataSet
         if datapath_test is None:
@@ -209,9 +231,12 @@ class DataHub(object):
 #            weights = torch.from_numpy(weights).float()
             sampler = WeightedRandomSampler(weights, len(data_set), replacement=True)
             shuffle = False
+        collate_fn = pad_collate_segcls if self.collate_max_hw is None else \
+            partial(pad_collate_segcls, max_hw=self.collate_max_hw)
+
         data_loader = DataLoader(data_set, batch_size=batch_size, sampler=sampler,
                                  shuffle=shuffle, num_workers=self.num_workers, pin_memory=False,
-                                 drop_last=drop_last, collate_fn=pad_collate_segcls)
+                                 drop_last=drop_last, collate_fn=collate_fn)
         return data_loader
 
     def _make_labelloader(self, split, datapath, batch_size):
