@@ -79,10 +79,12 @@ def auc(prob, target_b):
     '''Calculate area under ROC curve (AUC) score'''
     prob_np = prob.cpu().numpy()
     target_np = target_b.cpu().numpy()
-    try:
-        return roc_auc_score(target_np, prob_np)
-    except ValueError: # In case only one class present
-        return 1
+    # roc_auc_score raises when only a single class is present; short-circuit to avoid noisy
+    # warnings while still returning a neutral score.
+    if np.unique(target_np).size < 2:
+        return 0.5
+
+    return roc_auc_score(target_np, prob_np)
 
 def num_component(mask):
     mask_np = mask.cpu().numpy()
