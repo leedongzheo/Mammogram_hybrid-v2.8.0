@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun  2 18:48:16 2018
-
-@author: rongzhao
+Optimized training config
+Batch size = 64, Epoch = 300
+Stable LR schedule to avoid loss explosion.
 """
 
 import time
@@ -22,13 +22,16 @@ import misc
 device = torch.device('cuda:0')
 timestr = time.strftime('%m%d%H%M')
 
+# ================================
+# DATASET
+# ================================
 dh_kwargs = {
         'root': '../data',
         'train_split': 'split/train.txt',
         'val_split': 'split/val.txt',
         'test_split': 'split/test.txt',
         'datapath': '.',
-        'train_batchsize': 64,
+        'train_batchsize': 64,          # <<< UPDATED
         'test_batchsize': 32,
         'modalities': ('label', 'img'),
         'rand_flip': (1, 1),
@@ -45,55 +48,101 @@ dh_kwargs = {
 
 data_cube = misc.DataHub(**dh_kwargs)
 
-lr = 0.01
+# ================================
+# LEARNING RATE (stable)
+# ================================
+lr = 0.01   # SGD default: stable even with batch = 64
+
 lr_scheme = {
         'base_lr': lr,
         'lr_policy': 'multistep',
         'gamma': 0.3,
-        'stepvalue': (1000, 1800, 2400, 2410),
-        'max_epoch': 300,
+
+        # <<< UPDATED: stepvalue theo epoch (ổn định hơn)
+        # 300 epoch → giảm LR ở 100 – 200 – 260
+        'stepvalue': (100, 200, 260),
+
+        'max_epoch': 300,     # <<< UPDATED
         }
+
+# ================================
+# MODEL
+# ================================
 mil_downfactor = 128
 drop = (.2,)*3 + (.5,)*5 + (.2,)*3
 model = M.uresnet_16x11x2(1, 2, drop, mil_downfactor, upsampler=fm.BilinearUp2d())
 num_mo = model.N + 1
+
 experiment_id = 'UResHDS_%s' % timestr
+
 model_cube = {
         'model': model,
         'init_func': misc.weights_init,
         'pretrain': None,
         'resume': None,
-        'optimizer': optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4),
+        'optimizer': optim.SGD(
+                model.parameters(),
+                lr=lr,
+                momentum=0.9,
+                weight_decay=5e-4
+        ),
         'num_mo': num_mo
         }
+
+# ================================
+# LOSS WEIGHT (giữ nguyên – đang tốt)
+# ================================
 loss_weight = (3.5, 3., 2.5, 2., 1.5, 1.)
+
+# update decay theo max_epoch mới
 lw_decay_seg = pow(5e-3, 1/lr_scheme['max_epoch'])
 lw_decay_cls = pow(5e-2, 1/lr_scheme['max_epoch'])
+
 weight_seg = torch.tensor((1., 1.)).to(device)
 weight_cls = torch.tensor((1., 1.)).to(device)
+
 criterion_cube = {
-        'criterion_seg': MultiOutputLoss(nn.CrossEntropyLoss(weight_seg), 
-                                         loss_weight, device, lw_decay_seg),
-        'criterion_cls': MultiOutputLoss(SparseMILLoss(1e-6, weight_cls),  #
-                                         loss_weight, device, lw_decay_cls),
-        'segcls_weight': (1.0, 0.03), # If cls_weight==0.0, clsfromseg = True
+        'criterion_seg': MultiOutputLoss(
+                nn.CrossEntropyLoss(weight_seg),
+                loss_weight, device, lw_decay_seg
+        ),
+        'criterion_cls': MultiOutputLoss(
+                SparseMILLoss(1e-6, weight_cls),
+                loss_weight, device, lw_decay_cls
+        ),
+        'segcls_weight': (1.0, 0.03),
         }
 
+# ================================
+# SNAPSHOT / DISPLAY
+# ================================
 snapshot_root = './snapshot/%s' % (experiment_id)
 os.makedirs(snapshot_root, exist_ok=True)
 
 snapshot_scheme = {
         'root': snapshot_root,
-        'display_interval': 10,
-        'test_interval': 10,
+        'display_interval': 10,   # mỗi 10 batch in log
+        'test_interval': 50,      # test mỗi ~50 batch để tránh chậm
         'snapshot_interval': 999999,
         }
 
+# ================================
+# TRAIN
+# ================================
 clsfromseg = (criterion_cube['segcls_weight'][1] == 0.0)
-trainer = Trainer(model_cube, data_cube, criterion_cube, lr_scheme, 
-                 snapshot_scheme, device, clsfromseg=clsfromseg)
+
+trainer = Trainer(
+        model_cube, data_cube, criterion_cube,
+        lr_scheme, snapshot_scheme, device,
+        clsfromseg=clsfromseg
+)
+
 trainer.train()
 
-is_indiv = False; is_save_png = False
+# ================================
+# FINAL EVALUATION
+# ================================
+is_indiv = False
+is_save_png = False
 trainer.test('cls_max', 'cls_max', is_indiv, is_save_png)
 trainer.test('seg_max', 'seg_max', is_indiv, is_save_png)
