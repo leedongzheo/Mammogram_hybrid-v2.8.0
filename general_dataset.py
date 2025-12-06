@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -62,34 +63,29 @@ class General_Dataset_SEGCLS(udata.Dataset):
 
     def __getitem__(self, index):
         img, label = self.data[index], self.label[index]
-
-        # ----------------------------------------------------------
+    
         # 1) BINARY HOÁ LABEL: pixel > 0 → 1, pixel == 0 → 0
-        # ----------------------------------------------------------
         label = (label > 0).astype(np.uint8)
-
-        # ----------------------------------------------------------
-        # 2) Chuyển sang Tensor LONG (bắt buộc cho CrossEntropyLoss)
-        # ----------------------------------------------------------
+    
+        # 2) Chuyển sang Tensor LONG
         label = torch.from_numpy(label).long()
-
-        # ----------------------------------------------------------
-        # 3) Transform (nếu transform trả Tensor → không ảnh hưởng)
-        # ----------------------------------------------------------
+    
+        # 3) Transform
         if self.transform is not None:
             img, label = self.transform(img, label)
-
         else:
-            # nếu không có transform, convert ảnh sang Tensor luôn
             img = torch.from_numpy(img).float()
-
-        # ----------------------------------------------------------
-        # 4) Image-level label (classification target)
-        # ----------------------------------------------------------
+    
+        # 🔴 RẤT QUAN TRỌNG: đảm bảo contiguous để DataLoader không crash
+        img = img.contiguous()
+        label = label.contiguous()
+    
+        # 4) Image-level label (0/1)
         cls_label = 1 if label.sum() > 0 else 0
         cls_label = torch.tensor(cls_label).long()
-
+    
         return img, label, cls_label
+
     
 
     def __len__(self):
