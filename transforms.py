@@ -67,7 +67,7 @@ def center_crop(tensor, size):
         y1 = (h - th) // 2
         z1 = (d - td) // 2
         loc = (x1, y1, z1, x1 + tw, y1 + th, z1 + td)
-        return crop(tensor, loc)
+        return crop(tensor, locations).contiguous()
     elif len(size) == 2:
         h, w = tensor.size()[-2:]
         th, tw = size
@@ -96,7 +96,7 @@ def crop_centroid(tensor, centroid, size):
     if len(centroid) == 3:
         locations = (start_pos[2], start_pos[1], start_pos[0], end_pos[2], end_pos[1], end_pos[0])
         return crop(tensor, locations).contiguous()
-    elif len(centroid == 2):
+    elif len(centroid) == 2:
         locations = (start_pos[1], start_pos[0], end_pos[1], end_pos[0])
         return crop(tensor, locations).contiguous()
     else:
