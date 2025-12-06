@@ -22,7 +22,7 @@ def passthrough(img, label):
 
 def has_even(intseq):
     for i in intseq:
-        if i % 2 is 0:
+        if i % 2 == 0:
             return True
     return False
 
