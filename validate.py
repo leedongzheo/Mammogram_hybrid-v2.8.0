@@ -438,7 +438,7 @@ def validate_cs(model, dataloader, sn_list, device, num_mo=1, save_dir=None, seg
                             toimage_np(images[j][0].cpu().numpy()).save(P.join(seg_dir, '%s.png' % (sn_list[idx])))
                             toimage_np(masks[j].cpu().numpy()).save(P.join(seg_dir, '%sagt.png' % (sn_list[idx])))
                         toimage_np(seg_mask.cpu().numpy()).save(P.join(seg_dir, '%s_%d_seg.png' % (sn_list[idx], i)))
-                        seg_prob = F.sigmoid(seg_out[1]-seg_out[0]).cpu().numpy()
+                        seg_prob = torch.sigmoid(seg_out[1]-seg_out[0]).cpu().numpy()
                         toimage_np(seg_prob, cmin=0., cmax=1.).save(P.join(seg_dir, '%s_%d_float.png' % (sn_list[idx], i)))
                         if len(cls_out.size()) == 3:
                             img = F.sigmoid(cls_out[1]-cls_out[0]).cpu().numpy()
