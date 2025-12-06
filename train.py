@@ -51,7 +51,7 @@ lr_scheme = {
         'lr_policy': 'multistep',
         'gamma': 0.3,
         'stepvalue': (1000, 1800, 2400, 2410),
-        'max_epoch': 2800,
+        'max_epoch': 300,
         }
 mil_downfactor = 128
 drop = (.2,)*3 + (.5,)*5 + (.2,)*3
