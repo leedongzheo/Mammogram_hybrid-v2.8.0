@@ -11,11 +11,25 @@ import torch.nn.functional as F
 import os
 import os.path as P
 import numpy as np
-from scipy.misc import toimage
+from PIL import Image
 from scipy import ndimage
 from scipy.ndimage import zoom
 from sklearn.metrics import roc_auc_score
+def toimage_np(arr, cmin=None, cmax=None):
+    arr = np.asarray(arr)
 
+    if cmin is None:
+        cmin = arr.min()
+    if cmax is None:
+        cmax = arr.max()
+
+    if cmax - cmin < 1e-8:
+        arr = np.zeros_like(arr)
+    else:
+        arr = (arr - cmin) / (cmax - cmin)
+
+    arr = (arr * 255).clip(0, 255).astype(np.uint8)
+    return Image.fromarray(arr)
 def is_float(value):
     if isinstance(value, torch.Tensor):
         return value.is_floating_point()
@@ -421,15 +435,16 @@ def validate_cs(model, dataloader, sn_list, device, num_mo=1, save_dir=None, seg
                         cm[i].evaluate_append(cls_prob, labels[j], thres=cls_thres)
                     if save_dir:
                         if i == -1:
-                            toimage(images[j][0].cpu().numpy()).save(P.join(seg_dir, '%s.png' % (sn_list[idx])))
-                            toimage(masks[j].cpu().numpy()).save(P.join(seg_dir, '%sagt.png' % (sn_list[idx])))
-                        toimage(seg_mask.cpu().numpy()).save(P.join(seg_dir, '%s_%d_seg.png' % (sn_list[idx], i)))
+                            toimage_np(images[j][0].cpu().numpy()).save(P.join(seg_dir, '%s.png' % (sn_list[idx])))
+                            toimage_np(masks[j].cpu().numpy()).save(P.join(seg_dir, '%sagt.png' % (sn_list[idx])))
+                        toimage_np(seg_mask.cpu().numpy()).save(P.join(seg_dir, '%s_%d_seg.png' % (sn_list[idx], i)))
                         seg_prob = F.sigmoid(seg_out[1]-seg_out[0]).cpu().numpy()
-                        toimage(seg_prob, cmin=0., cmax=1.).save(P.join(seg_dir, '%s_%d_float.png' % (sn_list[idx], i)))
+                        toimage_np(seg_prob, cmin=0., cmax=1.).save(P.join(seg_dir, '%s_%d_float.png' % (sn_list[idx], i)))
                         if len(cls_out.size()) == 3:
                             img = F.sigmoid(cls_out[1]-cls_out[0]).cpu().numpy()
                             img = zoom(img, 1024/img.shape[0])
-                            toimage(img, cmin=0., cmax=1.).save(P.join(cls_dir, '%s_%d_mil.png' % (sn_list[idx], i)))
+                            toimage_np(img, cmin=0., cmax=1.).save(P.join(cls_dir, '%s_%d_mil.png' % (sn_list[idx], i)))
+
     for s in sm:
         s.get_metric()
     for c in cm:
