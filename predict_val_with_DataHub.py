@@ -1,3 +1,4 @@
+
 import argparse
 import torch
 import torch.nn.functional as F
@@ -62,6 +63,32 @@ def main():
     parser.add_argument("--threshold", default=0.5, type=float)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="pred_val")
+    parser.add_argument(
+        "--crop_type_test",
+        default=None,
+        choices=(None, "center", "random"),
+        help=(
+            "Test-time crop strategy. Use None to keep the original resolution. "
+            "If the validation masks are fully black, make sure this matches the "
+            "training setup so lesions are not cropped out."
+        ),
+    )
+    parser.add_argument(
+        "--crop_size_img_test",
+        type=int,
+        nargs=2,
+        metavar=("H", "W"),
+        default=None,
+        help="Height/width for test-time image crops when crop_type_test is set.",
+    )
+    parser.add_argument(
+        "--crop_size_label_test",
+        type=int,
+        nargs=2,
+        metavar=("H", "W"),
+        default=None,
+        help="Height/width for test-time label crops when crop_type_test is set.",
+    )
     args = parser.parse_args()
 
     device = torch.device(args.device)
@@ -80,9 +107,9 @@ def main():
         "modalities": ("label", "img"),
         "rand_flip": (1, 1),              # <<<<< SỬA CHỖ NÀY, KHÔNG ĐỂ None
         "crop_type": None,
-        "crop_type_test": "center",
-        "crop_size_img_test": (512, 384),
-        "crop_size_label_test": (512, 384),
+        "crop_type_test": args.crop_type_test,
+        "crop_size_img_test": args.crop_size_img_test,
+        "crop_size_label_test": args.crop_size_label_test,
         "DataSet": misc.datasets.Dataset_SEGCLS_png,
         "num_workers": 0,
     }
