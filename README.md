@@ -36,3 +36,15 @@ Mean/std calculation:
     --crop_size 512 384 --samples_per_image 8 \
     --output data/meanstd.txt
   ```
+* Inference segmentation trên tập validation *đúng theo pipeline training*:
+
+- Load DataHub (giống training)
+- Ảnh + mask được center-crop, normalize như training
+- Model multi-output → lấy head cuối (seg_max)
+- Softmax → mask class 1
+- Tính DSC chính xác
+- Lưu predicted mask, GT mask và metrics
+- 
+  ```bash
+  python predict_val_with_DataHub.py --root data --val_split split/val.txt --datapath . --checkpoint snapshot/UResHDS_12061912/state_seg_max.pkl --output pred_val --device cuda --threshold 0.5
+  ```
