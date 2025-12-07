@@ -132,6 +132,7 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     metrics = []
+    empty_gt = []
 
     print("\nRunning inference on validation set...\n")
 
@@ -145,20 +146,33 @@ def main():
 
         pred_mask, dsc = predict_one(model, img, mask, device, args.threshold)
 
+        gt_pos = int(mask.sum().item())
+        pred_pos = int(pred_mask.sum())
+
         # Save
         imageio.imwrite(outdir / f"{sn}_gt.png", (mask.numpy().astype("uint8") * 255))
         imageio.imwrite(outdir / f"{sn}_pred.png", (pred_mask * 255))
 
-        metrics.append((sn, dsc))
+        if gt_pos == 0:
+            empty_gt.append(sn)
+
+        metrics.append((sn, dsc, gt_pos, pred_pos))
 
     # ---------------------------------------------------------
     # Save metrics.txt
     # ---------------------------------------------------------
     with open(outdir / "metrics.txt", "w") as f:
-        for sn, dsc in metrics:
-            f.write(f"{sn}\t{dsc:.4f}\n")
+        f.write("sn\tdsc\tgt_pos_pixels\tpred_pos_pixels\n")
+        for sn, dsc, gt_pos, pred_pos in metrics:
+            f.write(f"{sn}\t{dsc:.4f}\t{gt_pos}\t{pred_pos}\n")
 
-    mean_dsc = sum(d for _, d in metrics) / len(metrics)
+    mean_dsc = sum(d for _, d, _, _ in metrics) / len(metrics)
+    if empty_gt:
+        print(
+            "\nWARNING: The following validation masks are empty (all background):\n"
+            + "\n".join(empty_gt)
+        )
+
     print(f"\nDONE. Mean DSC = {mean_dsc:.4f}")
     print(f"Saved results to: {outdir}")
 
